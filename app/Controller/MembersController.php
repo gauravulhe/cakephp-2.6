@@ -8,6 +8,26 @@ App::uses('AppController', 'Controller');
  */
 class MembersController extends AppController {
 
+	public function beforeFilter(){
+		parent::beforeFilter();
+		$this->Auth->allow('add', 'logout');
+		$this->set('user_id', $this->Auth->user('id'));
+	}
+
+	public function login(){
+		if ($this->request->is('post')) {
+			if($this->Auth->login()){
+				return $this->redirect($this->Auth->redirectUrl());
+			}
+
+			$this->Session->setFlash('Invalid username or password.');
+		}
+	}
+
+	public function logout(){
+		return $this->redirect($this->Auth->logout());
+	}
+
 /**
  * Components
  *
@@ -21,9 +41,26 @@ class MembersController extends AppController {
  *
  * @return void
  */
-	public function index() {
-		$this->Member->recursive = 0;
-		$this->set('members', $this->Paginator->paginate());
+	public function index() {		
+		if ($this->request->is('post'))
+		{
+			//debug($this->request->data);exit; 
+			$id = $this->request->data['Member']['id'];
+			//debug($id);exit;
+			if (!$this->Member->exists($id)) 
+			{
+			throw new NotFoundException(__('Invalid member'));
+			}
+			$options = array('conditions' => array('Member.' . $this->Member->primaryKey => $id));
+			//debug($this->Member->find('first', $options));exit;
+			$this->set('members', $this->Member->find('all', $options), $this->Paginator->paginate());
+		}
+		else
+		{
+			$this->Member->recursive = 0;
+			$this->set('members', $this->Paginator->paginate());
+		}
+		
 	}
 
 /**
@@ -48,40 +85,27 @@ class MembersController extends AppController {
  */
 	public function add() {
 		if ($this->request->is('post')) {
-			//debug($this->request);exit;
-			$fileName = rand(000000, 999999).'_'.$this->request->data['Member']['avatar']['name'];
-			//debug($fileName);
-			$tmpName = $this->request->data['Member']['avatar']['tmp_name'];
-			//debug($tmpName);exit;
-			$uploadPath = WWW_ROOT.'uploads/';
-			$uploadFile = $uploadPath.$fileName;
-			//debug($uploadFile);exit;
-
-			// move the image
-
-			if(move_uploaded_file($tmpName, $uploadFile)){
+			for ($i=1; $i < 5 ; $i++) { 
+				$fileName = $this->fileName($i);				
+				$tmpName = $this->tmpName($i);
+				$uploadFile = $this->uploadFile($i, $fileName);
+				$this->moveFile($tmpName, $uploadFile);
+				$this->request->data['Member']['avatar'.$i] = $fileName;
+			}
 				$this->Member->create();
-				$this->request->data['Member']['avatar'] = $fileName;
-				//debug($this->request->data['Member']['avatar']['name']);exit;
 				if ($this->Member->save($this->request->data)) {
 					$this->Session->setFlash(__('The member has been saved.'));
 					return $this->redirect(array('action' => 'index'));
 				} else {
 					$this->Session->setFlash(__('The member could not be saved. Please, try again.'));
 				}
-
-			}
 		}
-
 		// passing options for gender field
-		$gender = array(
-			'Male' => 'Male',
-			'Female' => 'Female'
-		);
+		$gender = array('Male' => 'Male', 'Female' => 'Female');
 		$this->set('genders', $gender);
-
 		// passing options for education field
 		$education = array(
+			'' => '--- Select ---',
 			'10TH' => '10TH', 
 			'12TH' => '12TH',
 			'Graducation' => 'Graducation',
@@ -89,6 +113,7 @@ class MembersController extends AppController {
 		);
 		$this->set('educations', $education);
 	}
+
 
 /**
  * edit method
@@ -101,44 +126,23 @@ class MembersController extends AppController {
 		if (!$this->Member->exists($id)) {
 			throw new NotFoundException(__('Invalid member'));
 		}
-		if ($this->request->is(array('post', 'put'))) {
-
-			debug($this->request->data);
-			if (!empty($this->request->data['Member']['avatar']['name'])) {
-				$fileName = rand(000000, 999999).'_'.$this->request->data['Member']['avatar']['name'];
-				//debug($fileName);
-				$tmpName = $this->request->data['Member']['avatar']['tmp_name'];
-				//debug($tmpName);exit;
-				$uploadPath = WWW_ROOT.'uploads/';
-				$uploadFile = $uploadPath.$fileName;
-				//debug($uploadFile);exit;
-
-				// move the image
-
-				if(move_uploaded_file($tmpName, $uploadFile)){
-					$this->Member->create();
-					$this->request->data['Member']['avatar'] = $fileName;
-					//debug($this->request->data['Member']['avatar']['name']);exit;
-					if ($this->Member->save($this->request->data)) {
-						$this->Session->setFlash(__('The member has been saved.'));
-						return $this->redirect(array('action' => 'index'));
-					} else {
-						$this->Session->setFlash(__('The member could not be saved. Please, try again.'));
-					}
-
+		if ($this->request->is(array('post', 'put'))) {			
+			$uploadPath = WWW_ROOT.'uploads/';	
+			for ($i=1; $i < 5 ; $i++) { 
+				$fileNameOld = $this->request->data['Member']['avatar'.$i.'_old'];
+				if (!empty($this->request->data['Member']['avatar'.$i]['name'])) {
+						$fileName = $this->fileName($i);				
+						$tmpName = $this->tmpName($i);
+						$uploadFile = $this->uploadFile($i, $fileName);
+						$removeFile = $uploadPath.$fileNameOld;
+						unlink($removeFile);
+						$this->moveFile($tmpName, $uploadFile);
+						$this->request->data['Member']['avatar'.$i] = $fileName;
+				}else{	
+					$this->request->data['Member']['avatar'.$i] = $fileNameOld;
 				}
 			}
-			else{
-					$this->Member->create();
-					$this->request->data['Member']['avatar'] = $this->request->data['Member']['avatar1'];
-					//debug($this->request->data['Member']['avatar']['name']);exit;
-					if ($this->Member->save($this->request->data)) {
-						$this->Session->setFlash(__('The member has been saved.'));
-						return $this->redirect(array('action' => 'index'));
-					} else {
-						$this->Session->setFlash(__('The member could not be saved. Please, try again.'));
-					}	
-			}
+			$this->Member->create();
 			if ($this->Member->save($this->request->data)) {
 				$this->Session->setFlash(__('The member has been saved.'));
 				return $this->redirect(array('action' => 'index'));
@@ -148,12 +152,9 @@ class MembersController extends AppController {
 		} else {
 			$options = array('conditions' => array('Member.' . $this->Member->primaryKey => $id));
 			$this->request->data = $this->Member->find('first', $options);
-
-
-			$avatar = $this->request->data['Member']['avatar'];
-			//debug($this->request->data);exit;
-			$this->set('avatar', $avatar);
-
+			for ($i=1; $i < 5; $i++) { 
+				$this->set('avatar'.$i, $this->getName($i));
+			}
 			// passing options for gender field
 			$gender_data = $this->request->data['Member']['gender'];
 			$gender = array(
@@ -169,11 +170,11 @@ class MembersController extends AppController {
 			// passing options for education field
 			$edu_data = $this->request->data['Member']['education'];
 			$education = array(
+				'selected' => $edu_data,
 				'10TH' => '10TH', 
 				'12TH' => '12TH',
 				'Graducation' => 'Graducation',
-				'Post Graducation' => 'Post Graducation',
-				'selected' => $edu_data
+				'Post Graducation' => 'Post Graducation'
 			);
 			$this->set('educations', $education);
 		}
@@ -198,5 +199,27 @@ class MembersController extends AppController {
 			$this->Session->setFlash(__('The member could not be deleted. Please, try again.'));
 		}
 		return $this->redirect(array('action' => 'index'));
+	}
+
+
+	public function fileName($i){
+		return rand(000000, 999999).'_'.$this->request->data['Member']['avatar'.$i]['name'];
+	}
+
+	public function tmpName($i){
+		return $this->request->data['Member']['avatar'.$i]['tmp_name'];
+	}
+
+	public function uploadFile($i, $fileName){					
+		$uploadPath = WWW_ROOT.'uploads/';
+		return $uploadPath.$fileName;
+	}
+
+	public function moveFile($tmpName, $uploadFile){
+		return move_uploaded_file($tmpName, $uploadFile);
+	}
+
+	public function getName($i){
+		return $this->request->data['Member']['avatar'.$i];
 	}
 }

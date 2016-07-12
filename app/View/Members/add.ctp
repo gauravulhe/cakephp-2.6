@@ -3,10 +3,16 @@
 	<fieldset>
 		<legend><?php echo __('Add Member'); ?></legend>
 	<?php
+		echo $this->Form->input('username');
+		echo $this->Form->input('password');
+		echo $this->Form->input('role', array('type' => 'hidden', 'value' => 'member'));
 		echo $this->Form->input('name');
 		echo $this->Form->input('gender', array('type' => 'radio', 'options' => $genders));
 		echo $this->Form->input('education', array('type' => 'select', 'options' => $educations));
-		echo $this->Form->input('avatar' ,array('type' => 'file'));
+		echo $this->Form->input('avatar1' ,array('type' => 'file'));
+		echo $this->Form->input('avatar2' ,array('type' => 'file'));
+		echo $this->Form->input('avatar3' ,array('type' => 'file'));
+		echo $this->Form->input('avatar4' ,array('type' => 'file'));
 		echo $this->Form->input('address');
 	?>
 	</fieldset>
