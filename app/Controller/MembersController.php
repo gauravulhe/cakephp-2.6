@@ -8,6 +8,8 @@ App::uses('AppController', 'Controller');
  */
 class MembersController extends AppController {
 
+	public $uses = array('Member', 'Education');
+
 	public function beforeFilter(){
 		parent::beforeFilter();
 		$this->Auth->allow('add', 'logout');
@@ -104,13 +106,10 @@ class MembersController extends AppController {
 		$gender = array('Male' => 'Male', 'Female' => 'Female');
 		$this->set('genders', $gender);
 		// passing options for education field
-		$education = array(
-			'' => '--- Select ---',
-			'10TH' => '10TH', 
-			'12TH' => '12TH',
-			'Graducation' => 'Graducation',
-			'Post Graducation' => 'Post Graducation'
-		);
+		$education = $this->Education->find('list', array(
+			'fields' => array('Education.education', 'Education.education')
+		));
+		//debug($education);exit;
 		$this->set('educations', $education);
 	}
 
@@ -160,22 +159,12 @@ class MembersController extends AppController {
 			$gender = array(
 				'Male' => 'Male',
 				'Female' => 'Female'
-			);
-			$atts = array(
-				'legend' => false,
-				'checked' => $gender_data				
-			);
+			);			
 			$this->set('genders', $gender);
-
 			// passing options for education field
-			$edu_data = $this->request->data['Member']['education'];
-			$education = array(
-				'selected' => $edu_data,
-				'10TH' => '10TH', 
-				'12TH' => '12TH',
-				'Graducation' => 'Graducation',
-				'Post Graducation' => 'Post Graducation'
-			);
+			$education = $this->Education->find('list', array(
+				'fields' => array('Education.education', 'Education.education')
+			));
 			$this->set('educations', $education);
 		}
 	}
